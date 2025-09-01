@@ -4,7 +4,10 @@ from collections import Counter
 import re
 
 class TxtClient:    
-    async def read_from_server(self, addr, port):
+    async def read_from_server(self, addr, port, chunk_size):
+        client_socket = None
+        word_counter = Counter()
+        text_buffer = ""
         try:
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client_socket.connect((addr, port))
@@ -20,64 +23,88 @@ class TxtClient:
             file_size = int(size_data.decode())
             print(f"{addr}:{port}: Expected {file_size} bytes")
 
-            # Receive data in chunks
-            received_data = b""
-            chunk_size = 8192
-            
-            while len(received_data) < file_size:
-                chunk = client_socket.recv(chunk_size)
+            # Stream and process data in chunks with a buffer
+            total_received = 0
+            while total_received < file_size:
+                chunk = client_socket.recv(min(chunk_size, file_size - total_received))
                 if not chunk:
                     break
-                received_data += chunk
-            
-            count = len(received_data)  # Count bytes
-            print(f"{addr}:{port}: {count} bytes read")
 
-            client_socket.close()
-            return count, received_data.decode("utf-8", errors="ignore")
+                total_received += len(chunk)
+                # decoding and adding to a buffer
+                try:
+                    text_chunk = chunk.decode("utf-8")
+                except UnicodeDecodeError:
+                    # Handle partial UTF-8 characters at chunk boundaries
+                    text_chunk = chunk.decode("utf-8", errors="ignore")
+                
+                text_buffer += text_chunk
+
+                # process complete words from buffer
+                word_counter.update(self.process_buffer(text_buffer))
+                # Keep incomplete word at end of buffer
+                text_buffer = self.get_incomplete_word(text_buffer)
+
+            # Process any remaining text in buffer
+            if text_buffer.strip():
+                word_counter.update(self.process_text_chunk(text_buffer))
+            print(f"{addr}:{port}: {total_received} bytes processed")
+            return word_counter
+        
 
         except Exception as e:
             print(f"Error reading from {addr}:{port}: {e}")
-            return 0, ""
+            return Counter()
+        finally:
+            if client_socket:
+                client_socket.close()
+                
+    def process_buffer(self, buffer):
+        """Process complete words from buffer, return word counter"""
+        # Find last complete word boundary
+        last_space = buffer.rfind(' ')
+        last_newline = buffer.rfind('\n')
+        last_boundary = max(last_space, last_newline)
         
-    async def run_analysis(self, servers):
-        # Start both connections in parallel
-        tasks = []
-        for addr, port in servers:
-            tasks.append(asyncio.create_task(self.analyze(addr, port)))
-
-        # Wait for all tasks to complete
-        return await asyncio.gather(*tasks)
-
-    def process_text(self, text):
-        # Process text to count words
+        if last_boundary == -1:
+            return Counter()  # No complete words
+        
+        # Process text up to last word boundary
+        complete_text = buffer[:last_boundary]
+        return self.process_text_chunk(complete_text)
+    
+    def get_incomplete_word(self, buffer):
+        """Return the incomplete word at the end of buffer"""
+        last_space = buffer.rfind(' ')
+        last_newline = buffer.rfind('\n')
+        last_boundary = max(last_space, last_newline)
+        
+        if last_boundary == -1:
+            return buffer  # Entire buffer is incomplete word
+        
+        return buffer[last_boundary + 1:]
+    
+    def process_text_chunk(self, text):
+        # Process a chunk of text and return word counter
         if not text:
             return Counter()
         
-        # Convert to lowercase and extract words
+        # Convert to lowercase and extract words to count them
         words = re.findall(r"\b[a-zA-Z]+\b", text.lower())
         return Counter(words)
     
-    def get_top_words(self, counter, n=10):
-        # Get top N most common words
-        return counter.most_common(n)
-    
-    async def analyze(self, addr, port):
-        top_words = []
-        try:
-            count, text = await self.read_from_server(addr, port)
-            if text:
-                word_count = self.process_text(text)
-                top_words = self.get_top_words(word_count, 5)   
-                    
-        except Exception as e:
-            print(f"Error analyzing {addr}:{port}: {e}")
-        return top_words
-    
+    async def run_analysis(self, servers):
+        # Start both connections in parallel
+        tasks = []
+        for addr, port, chunk_size in servers:
+            tasks.append(asyncio.create_task(self.read_from_server(addr, port, chunk_size)))
+
+        # Wait for all tasks to complete
+        return await asyncio.gather(*tasks)
 async def main():
     # Create client instance
     client = TxtClient()
-    servers = [("localhost", 9001), ("localhost", 9002)] # Addresses and ports to servers
+    servers = [("localhost", 9001, 8192), ("localhost", 9002, 8192)] # Addresses, ports, and chunk sizes for servers
     try:
         # Run parallel analysis
         results = await client.run_analysis(servers)
@@ -85,8 +112,7 @@ async def main():
         # Aggregate results from all servers
         aggregation_counter = Counter()
         for result in results:
-            for word, count in result:
-                aggregation_counter[word] += count
+            aggregation_counter.update(result)
 
         # Print aggregated results
         print("Top 5 words across both files:")
