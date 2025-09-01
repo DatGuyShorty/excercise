@@ -8,7 +8,6 @@ def server(addr, port, file_path):
     server_socket.bind((addr, port))
     server_socket.listen(5)
     print(f"Server for {file_path} listening on {addr}:{port}")
-
     while True:
         client_socket, address = server_socket.accept()
         try:
@@ -31,7 +30,6 @@ def server(addr, port, file_path):
             client_socket.close()
 
 if __name__ == "__main__":
-    
     if len(sys.argv) != 4:
         print("Usage: python server.py <host> <port> <file_path>")
         print("Example: python server.py localhost 9001 frankenstein.txt")

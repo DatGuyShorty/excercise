@@ -3,8 +3,7 @@ import asyncio
 from collections import Counter
 import re
 
-class TxtClient:
-    
+class TxtClient:    
     async def read_from_server(self, addr, port):
         try:
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -76,14 +75,24 @@ class TxtClient:
         return top_words
     
 async def main():
-
     # Create client instance
     client = TxtClient()
     servers = [("localhost", 9001), ("localhost", 9002)] # Addresses and ports to servers
     try:
         # Run parallel analysis
         results = await client.run_analysis(servers)
-        print(results)
+
+        # Aggregate results from all servers
+        aggregation_counter = Counter()
+        for result in results:
+            for word, count in result:
+                aggregation_counter[word] += count
+
+        # Print aggregated results
+        print("Top 5 words across both files:")
+        for word, count in aggregation_counter.most_common(5):
+            print(f"  {word}: {count}")
+
     except Exception as e:
         print(f"Client error: {e}")
 
