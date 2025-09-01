@@ -70,12 +70,6 @@ class TxtClient:
             if text:
                 word_count = self.process_text(text)
                 top_words = self.get_top_words(word_count, 5)   
-
-                #print(f"\n=== {addr}:{port} ANALYSIS ===")
-                #print(f"Total words: {sum(word_count.values())}")
-                #print("Top 5 most common words:")
-                #for word, count in top_words:
-                #    print(f"  {word}: {count}")
                     
         except Exception as e:
             print(f"Error analyzing {addr}:{port}: {e}")

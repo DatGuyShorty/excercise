@@ -33,8 +33,8 @@ def server(addr, port, file_path):
 if __name__ == "__main__":
     
     if len(sys.argv) != 4:
-        print("Usage: python server1.py <host> <port> <file_path>")
-        print("Example: python server1.py localhost 9001 frankenstein.txt")
+        print("Usage: python server.py <host> <port> <file_path>")
+        print("Example: python server.py localhost 9001 frankenstein.txt")
         sys.exit(1)
     
     host = sys.argv[1]
