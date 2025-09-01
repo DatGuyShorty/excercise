@@ -9,17 +9,17 @@ class TxtClient:
         word_counter = Counter()
         text_buffer = ""
         try:
-            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client_socket.connect((addr, port))
+            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Create TCP socket
+            client_socket.connect((addr, port))  # Connect to server
 
-            # Receive file size first, sockets need to know expected size before
+            # Receive file size first, sockets need to know expected size before transfer
             size_data = b""
             while True:
                 char = client_socket.recv(1)
                 if char == b"\n":
                     break
                 size_data += char
-            
+  
             file_size = int(size_data.decode())
             print(f"{addr}:{port}: Expected {file_size} bytes")
 
@@ -94,13 +94,23 @@ class TxtClient:
         return Counter(words)
     
     async def run_analysis(self, servers):
-        # Start both connections in parallel
+        """
+        Run analysis on multiple servers in parallel.
+
+        Args:
+            servers (list): List of tuples (addr, port, chunk_size).
+
+        Returns:
+            list: List of results from each server, in the same order as the input tasks.
+        """
+        # Start connections in parallel
         tasks = []
         for addr, port, chunk_size in servers:
             tasks.append(asyncio.create_task(self.read_from_server(addr, port, chunk_size)))
 
         # Wait for all tasks to complete
         return await asyncio.gather(*tasks)
+        
 async def main():
     # Create client instance
     client = TxtClient()

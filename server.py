@@ -15,7 +15,6 @@ def server(host, port, chunk_size, file_path):
                 # Send file size first
                 file_size = os.path.getsize(file_path)
                 client_socket.send(str(file_size).encode() + b"\n")
-
                 # Stream file content in chunks, handles larger files better.
                 with open(file_path, "rb") as f:
                     while True:
@@ -23,8 +22,8 @@ def server(host, port, chunk_size, file_path):
                         if not chunk:
                             break
                         client_socket.send(chunk)
-
                 print(f"Server sent {file_size} bytes to {addr}")
+
             except Exception as e:
                 print(f"Server error: {e}")
             finally:
