@@ -1,4 +1,4 @@
-# excercise resources
+# exercise resources
 dracula.txt
 frankenstein.txt
 
@@ -8,3 +8,10 @@ shakespeare.txt
 
 # .py used for testing
 run_test.py
+
+# logs
+logs/
+*.log
+
+# __pycache__
+__pycache__/

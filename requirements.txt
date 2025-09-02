@@ -1,0 +1,24 @@
+# Text File Analysis Client-Server System
+# This project uses only Python standard library modules
+# No external dependencies required
+
+# Python version requirement
+# Minimum Python 3.7 (for asyncio.run() support)
+# Recommended Python 3.8+ for better typing support
+
+# All imports are from standard library:
+# - socket: TCP networking
+# - asyncio: Asynchronous I/O
+# - os, sys: System operations  
+# - argparse: Command line parsing
+# - collections: Counter for word frequency
+# - re: Regular expressions for text processing
+# - hashlib: SHA-256 hash verification
+# - logging: Application logging
+# - typing: Type hints
+# - unittest: Testing framework
+# - subprocess: Process management for tests
+# - time: Time operations
+# - tempfile, shutil: File operations for tests
+
+# No external packages needed - this is a pure Python project

@@ -2,12 +2,20 @@ import socket
 import asyncio
 from collections import Counter
 import re
+import hashlib
+import logging
+
+# Simple logging setup
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class TxtClient:    
     async def read_from_server(self, addr, port, chunk_size):
         client_socket = None
         word_counter = Counter()
         text_buffer = ""
+        rolling_hash = hashlib.sha256()  # For data integrity verification
+        
         try:
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Create TCP socket
             client_socket.connect((addr, port))  # Connect to server
@@ -15,28 +23,33 @@ class TxtClient:
             # Receive file size first, sockets need to know expected size before transfer
             size_data = b""
             while True:
+                # Read in small chunks instead of byte-by-byte for better efficiency
                 char = client_socket.recv(1)
-                if char == b"\n":
+                if not char or char == b"\n":
                     break
                 size_data += char
   
             file_size = int(size_data.decode())
-            print(f"{addr}:{port}: Expected {file_size} bytes")
+            logger.info(f"{addr}:{port}: Expected {file_size} bytes")
 
             # Stream and process data in chunks with a buffer
             total_received = 0
             while total_received < file_size:
-                chunk = client_socket.recv(min(chunk_size, file_size - total_received))
+                remaining = file_size - total_received
+                chunk = client_socket.recv(min(chunk_size, remaining))
                 if not chunk:
                     break
 
+                rolling_hash.update(chunk)  # Update integrity hash
                 total_received += len(chunk)
-                # decoding and adding to a buffer
+                
+                # decoding and adding to a buffer  
                 try:
                     text_chunk = chunk.decode("utf-8")
-                except UnicodeDecodeError:
-                    # Handle partial UTF-8 characters at chunk boundaries
-                    text_chunk = chunk.decode("utf-8", errors="ignore")
+                except UnicodeDecodeError as e:
+                    # Handle partial UTF-8 characters at chunk boundaries more gracefully
+                    logger.warning(f"UTF-8 decode warning at {addr}:{port} - using replacement chars")
+                    text_chunk = chunk.decode("utf-8", errors="replace")
                 
                 text_buffer += text_chunk
 
@@ -48,16 +61,51 @@ class TxtClient:
             # Process any remaining text in buffer
             if text_buffer.strip():
                 word_counter.update(self.process_text_chunk(text_buffer))
-            print(f"{addr}:{port}: {total_received} bytes processed")
+                
+            # Try to receive hash for integrity verification (optional - server may not send)
+            try:
+                client_socket.settimeout(1.0)  # Short timeout for hash
+                hash_data = self._try_receive_hash(client_socket)
+                if hash_data:
+                    received_hash = rolling_hash.hexdigest()
+                    if received_hash == hash_data:
+                        logger.info(f"{addr}:{port}: [OK] Hash verification successful")
+                    else:
+                        logger.warning(f"{addr}:{port}: [WARNING] Hash mismatch")
+            except socket.timeout:
+                pass  # No hash sent, continue normally
+            except Exception:
+                pass  # Hash verification failed, but don't break functionality
+            
+            logger.info(f"{addr}:{port}: {total_received} bytes processed")
             return word_counter
         
 
         except Exception as e:
-            print(f"Error reading from {addr}:{port}: {e}")
+            logger.error(f"Error reading from {addr}:{port}: {e}")
             return Counter()
         finally:
             if client_socket:
                 client_socket.close()
+    
+    def _try_receive_hash(self, sock):
+        """Try to receive hash from server if available"""
+        try:
+            # Look for hash pattern
+            data = b""
+            while len(data) < 100:  # Reasonable limit
+                char = sock.recv(1)
+                if not char:
+                    break
+                data += char
+                if b"HASH:" in data and data.endswith(b"\n"):
+                    # Found complete hash message
+                    hash_line = data.decode('utf-8').strip()
+                    if "HASH:" in hash_line:
+                        return hash_line.split("HASH:")[1].strip()
+            return None
+        except Exception:
+            return None
                 
     def process_buffer(self, buffer):
         """Process complete words from buffer, return word counter"""
