@@ -1,44 +1,59 @@
-import socket
+import socket # For TCP socket operations used previously, replaced by asyncio streams
 import os
 import sys
+import asyncio 
+import logging
 
-def server(host, port, chunk_size, file_path):
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+async def server(host, port, chunk_size, file_path):
+    """Starts a socket server using asyncio streams"""
+    server = await asyncio.start_server(
+        lambda r, w: handle_client(r, w, file_path, chunk_size),
+        host, port
+    )
+    logging.info(f"Server started on {host}:{port}, serving file '{file_path}' in chunks of {chunk_size} bytes")
     try:
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((host, port))
-        server_socket.listen(5)
-        print(f"Server for {file_path} listening on {host}:{port}") 
-        while True:
-            client_socket, addr = server_socket.accept()
-            try:
-                # Send file size first
-                file_size = os.path.getsize(file_path)
-                client_socket.send(str(file_size).encode() + b"\n")
-                # Stream file content in chunks, handles larger files better.
-                with open(file_path, "rb") as f:
-                    while True:
-                        chunk = f.read(chunk_size)  # Use the specified chunk size
-                        if not chunk:
-                            break
-                        client_socket.send(chunk)
-                print(f"Server sent {file_size} bytes to {addr}")
-
-            except Exception as e:
-                print(f"Server error: {e}")
-            finally:
-                if client_socket:
-                    client_socket.close()
+        await server.serve_forever()
     except KeyboardInterrupt:
-        print(f"\nServer on port {port} shutting down...")
+        logging.info(f"\nServer on port {port} shutting down...")
     finally:
-        if server_socket:
-            server_socket.close()
+        server.close()
+        await server.wait_closed()
+
+async def handle_client(reader, writer, file_path, chunk_size):
+    """Handle a client connection, sending the file in chunks"""
+    try:
+        # Send file size first
+        file_size = os.path.getsize(file_path)
+        writer.write(f"{file_size}\n".encode())
+        await writer.drain()
+
+        # Stream file content in chunks
+        with open(file_path, "rb") as f:
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                writer.write(chunk)
+                await writer.drain()
+        logging.info(f"Server sent {file_size} bytes to {writer.get_extra_info('peername')}")
+    except Exception as e:
+        logging.error(f"Server error: {e}")
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
 if __name__ == "__main__":
+    # Ensure 'logs/' directory exists
+    os.makedirs("logs", exist_ok=True)
+    # Setup logging to file and console
+    logging.basicConfig(level=logging.INFO, filename="logs/server.log", filemode="a",
+                        format="%(asctime)s - %(levelname)s - %(message)s")
+    #logging.getLogger().addHandler(logging.StreamHandler(sys.stdout)) # Uncomment to also log to console
+
+    # Simple command line argument parsing
     if len(sys.argv) != 5:
-        print("Usage: python server.py <host> <port> <chunk_size> <file_path>")
-        print("Example: python server.py localhost 9001 8192 frankenstein.txt")
+        logging.warning("Usage: python server.py <host> <port> <chunk_size> <file_path>")
+        logging.warning("Example: python server.py localhost 9001 8192 data/frankenstein.txt")
         sys.exit(1)
     
     host = sys.argv[1]
@@ -47,7 +62,7 @@ if __name__ == "__main__":
     file_path = sys.argv[4]
 
     if not os.path.exists(file_path):
-        print(f"Error: File '{file_path}' not found")
+        logging.error(f"Error: File '{file_path}' not found")
         sys.exit(1)
 
-    server(host, port, chunk_size, file_path)
+    asyncio.run(server(host, port, chunk_size, file_path))
