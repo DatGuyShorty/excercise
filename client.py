@@ -4,6 +4,7 @@ from collections import Counter
 import re
 import logging
 import sys
+import os
 
 class TxtClient:    
     async def read_from_server(self, addr, port, chunk_size):
@@ -155,7 +156,6 @@ async def main(servers=None):
 
 
 if __name__ == "__main__":
-    import os
     # Ensure 'logs/' directory exists
     os.makedirs("logs", exist_ok=True)
     # Setup logging to file and console
