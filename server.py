@@ -14,6 +14,16 @@ class TxtServer:
               file_path (str): path to the text file to send (e.g. 'data/frankenstein.txt')
         Returns: None
         """
+        if port < 1 or port > 65535:
+            logging.error("Error: Port must be in range 1-65535")
+            raise ValueError("Port must be in range 1-65535")
+        elif chunk_size < 256 or chunk_size > 8192:
+            logging.error("Error: chunk_size must be in range 256-8192")
+            raise ValueError("chunk_size must be in range 256-8192")
+        elif not os.path.exists(file_path):
+            logging.error(f"Error: File '{file_path}' not found")
+            raise ValueError(f"File '{file_path}' not found")
+
         server = await asyncio.start_server(
             lambda r, w: self.handle_client(r, w, file_path, chunk_size),
             host, port
@@ -74,15 +84,7 @@ if __name__ == "__main__":
     elif sys.argv[2].isalpha() or sys.argv[3].isalpha(): # Check if port and chunk_size are integers
         logging.error("Error: Port and chunk_size must be integers")
         sys.exit(1)
-    elif not (1 <= int(sys.argv[2]) <= 65535): # Port range check
-        logging.error("Error: Port must be in range 1-65535")
-        sys.exit(1)
-    elif not (256 <= int(sys.argv[3]) <= 8192): # Chunk size range check
-        logging.error("Error: chunk_size must be in range 256-8192")
-        sys.exit(1)
-    elif not os.path.exists(sys.argv[4]):
-        logging.error(f"Error: File '{sys.argv[4]}' not found")
-        sys.exit(1)
+
 
     host = sys.argv[1]
     port = int(sys.argv[2])
