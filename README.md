@@ -76,3 +76,5 @@ The system handles:
 Logs are written to:
 - `logs/server.log` - Server operations and client connections
 - `logs/client.log` - Client operations and processing status
+
+

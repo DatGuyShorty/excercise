@@ -7,13 +7,13 @@ import sys
 import os
 
 class TxtClient:    
-    async def read_from_server(self, addr, port, chunk_size):
+    async def read_from_server(self, addr: str, port: int, chunk_size: int):
         """
         Read text data from server and count word occurrences
-        Args: addr (str): server address
-              port (int): server port
-              chunk_size (int): size of data chunks to read
-        Returns: Counter of words
+        Args: addr (str): server address (e.g. 'localhost' or '0.0.0.0')
+              port (int): server port (e.g. 1024-65535)
+              chunk_size (int): size of data chunks to read (e.g. 256-8192)
+        Returns: Counter of words  (Counter)
         """
         client_socket = None
         word_counter = Counter()  # Counter to aggregate word counts
@@ -67,12 +67,12 @@ class TxtClient:
         finally:
             if client_socket:
                 client_socket.close()
-                
-    def process_buffer(self, buffer):
+
+    def process_buffer(self, buffer: str):
         """
         Process complete words from buffer, return word counter
         Args: buffer (str): text buffer to process
-        Returns: Counter of words
+        Returns: Counter of words (Counter)
         """
         # Find last complete word boundary
         last_space = buffer.rfind(' ')
@@ -85,9 +85,13 @@ class TxtClient:
         # Process text up to last word boundary
         complete_text = buffer[:last_boundary]
         return self.process_text_chunk(complete_text)
-    
-    def get_incomplete_word(self, buffer):
-        """Return the incomplete word at the end of buffer"""
+
+    def get_incomplete_word(self, buffer: str):
+        """
+        Return the incomplete word at the end of buffer
+        Args: buffer (str): text buffer
+        Returns: str: incomplete word at end of buffer
+        """
         last_space = buffer.rfind(' ')
         last_newline = buffer.rfind('\n')
         last_boundary = max(last_space, last_newline)
@@ -96,29 +100,27 @@ class TxtClient:
             return buffer  # Entire buffer is incomplete word
         
         return buffer[last_boundary + 1:]
-    
-    def process_text_chunk(self, text):
+
+    def process_text_chunk(self, text: str):
         """
         Process a chunk of text and return word counter.
-
         Args: text (str): text chunk to process
-
-        Returns: Counter of words
+        Returns: Counter of words (Counter)
         """
         # Process a chunk of text and return word counter
         if not text:
             return Counter()
         
         # Convert to lowercase and extract words to count them
-        words = re.findall(r"\b[a-zA-Z]+\b", text.lower())
+        # Use \w+ to match Unicode word characters (includes accented letters)
+        # \w matches [a-zA-Z0-9_] plus Unicode letter categories
+        words = re.findall(r"\b\w+\b", text.lower())
         return Counter(words)
-    
-    async def run_analysis(self, servers):
+
+    async def run_analysis(self, servers: list[tuple[str, int, int]]):
         """
         Run analysis on multiple servers in parallel using async.
-
-        Args: servers (list): List of tuples (addr, port, chunk_size).
-
+        Args: servers (list): List of tuples (addr, port, chunk_size, e.g. ('localhost', 9001, 8192)).
         Returns: list: List of results from each server, in the same order as the input tasks.
         """
         # Start connections in parallel
@@ -128,8 +130,29 @@ class TxtClient:
 
         # Wait for all tasks to complete
         return await asyncio.gather(*tasks)
-        
-async def main(servers=None):
+    
+    def aggregate_results(self, results: list[Counter]):
+        """
+        Aggregate word counts from multiple server results.
+        Args: results (list): List of Counter objects from each server.
+        Returns: Counter: Aggregated word counts.
+        """
+        aggregation_counter = Counter()
+        for result in results:
+            aggregation_counter.update(result)
+        return aggregation_counter
+
+    def print_results(self, aggregation_counter: Counter, num_servers: int):
+        """
+        Print the top 5 words from the aggregated results.
+        Args: aggregation_counter (Counter): Aggregated word counts.
+              num_servers (int): Number of servers processed.
+        """
+        print(f"Top 5 words across {num_servers} file{'s' if num_servers != 1 else ''}:")
+        for word, count in aggregation_counter.most_common(5):
+            print(f"  {word}: {count}")
+
+async def main(servers: list[tuple[str, int, int]] = None):
 
     if servers is None:
         logging.info("No servers provided, using default localhost servers.")
@@ -137,22 +160,14 @@ async def main(servers=None):
 
     # Create client instance
     client = TxtClient()
+    
     try:
-        # Run parallel analysis
         results = await client.run_analysis(servers)
-
-        # Aggregate results from all servers
-        aggregation_counter = Counter()
-        for result in results:
-            aggregation_counter.update(result)
-
-        # Print aggregated results
-        print(f"Top 5 words across {len(servers)} file{'s' if len(servers) != 1 else ''}:")
-        for word, count in aggregation_counter.most_common(5):
-            print(f"  {word}: {count}")
-
+        aggregation_counter = client.aggregate_results(results)
+        client.print_results(aggregation_counter, len(servers))
     except Exception as e:
         logging.error(f"Client error: {e}")
+
 
 
 if __name__ == "__main__":

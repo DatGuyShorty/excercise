@@ -9,9 +9,11 @@ shakespeare.txt
 # .py used for testing
 run_test.py
 multi_client_test.py
+
 # cache and env folders
 __pycache__/
 .venv/
+.pytest_cache/
 
 # log files
 logs/*.log
