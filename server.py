@@ -10,16 +10,16 @@ class TxtServer:
         Starts a socket server using asyncio streams
         Args: host (str): server host ('' or '0.0.0.0' for all interfaces)
               port (int): server port (e.g. 1024-65535)
-              chunk_size (int): size of data chunks to send (e.g. 256-8192)
+              chunk_size (int): size of data chunks to send (e.g. 64-8192)
               file_path (str): path to the text file to send (e.g. 'data/frankenstein.txt')
         Returns: None
         """
         if port < 1 or port > 65535:
             logging.error("Error: Port must be in range 1-65535")
             raise ValueError("Port must be in range 1-65535")
-        elif chunk_size < 256 or chunk_size > 8192:
-            logging.error("Error: chunk_size must be in range 256-8192")
-            raise ValueError("chunk_size must be in range 256-8192")
+        elif chunk_size < 64 or chunk_size > 8192:
+            logging.error("Error: chunk_size must be in range 64-8192")
+            raise ValueError("chunk_size must be in range 64-8192")
         elif not os.path.exists(file_path):
             logging.error(f"Error: File '{file_path}' not found")
             raise ValueError(f"File '{file_path}' not found")

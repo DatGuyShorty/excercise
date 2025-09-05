@@ -166,10 +166,10 @@ async def test_multi_server_interaction():
         server_process2.wait()
         time.sleep(0.5)
 
-@pytest.fixture(params=[256, 512, 2048, 4096, 8192])
+@pytest.fixture(params=[64, 128, 256, 512, 2048, 4096, 8192])
 def valid_chunk_size(request):
-    """Fixture to provide valid chunk sizes (256-8192)"""
-    return request.param    
+    """Fixture to provide valid chunk sizes (64-8192)"""
+    return request.param
 
 @pytest.fixture
 def valid_chunk_server(host, available_port, valid_chunk_size):
@@ -190,7 +190,7 @@ def valid_chunk_server(host, available_port, valid_chunk_size):
 
 @pytest.mark.asyncio
 async def test_valid_chunk_sizes(valid_chunk_server):
-    """Tests client interaction with valid chunk sizes (256-8192)"""
+    """Tests client interaction with valid chunk sizes (64-8192)"""
     addr, available_port, chunk_size = valid_chunk_server
     client = TxtClient()
     servers = [(addr, available_port, chunk_size)]
@@ -200,9 +200,9 @@ async def test_valid_chunk_sizes(valid_chunk_server):
     assert aggregation_counter == expected
 
 # chunk size tests - invalid range (should fail)
-@pytest.fixture(params=[64, 128, 16384, 32768])
+@pytest.fixture(params=[0, 1, 16, 32, 63, 16384, 32768, 9999999])
 def invalid_chunk_size(request):
-    """Fixture to provide invalid chunk sizes (outside 256-8192 range)"""
+    """Fixture to provide invalid chunk sizes (outside 64-8192 range)"""
     return request.param
 
 @pytest.mark.asyncio
@@ -233,7 +233,7 @@ async def test_invalid_chunk_sizes_fail(host, available_port, invalid_chunk_size
         pytest.fail(f"Server did not exit quickly with invalid chunk_size {invalid_chunk_size}")
 
 #valid port tests
-@pytest.fixture(params=[4286, 5563, 4200, 9000, 25565, 65000])
+@pytest.fixture(params=[2100,4286, 5563, 4200, 9000, 25565, 65000])
 def valid_port(request):
     """Fixture to provide valid port numbers (1-65535)"""
     return request.param

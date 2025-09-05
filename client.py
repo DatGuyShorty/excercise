@@ -12,16 +12,16 @@ class TxtClient:
         Read text data from server and count word occurrences
         Args: addr (str): server address (e.g. 'localhost' or '0.0.0.0')
               port (int): server port (e.g. 1024-65535)
-              chunk_size (int): size of data chunks to read (e.g. 256-8192)
+              chunk_size (int): size of data chunks to read (e.g. 64-8192)
         Returns: Counter of words  (Counter)
         """
         if port < 1 or port > 65535:
             logging.error("Error: Port must be in range 1-65535")
             raise ValueError("Port must be in range 1-65535")
-        elif chunk_size < 256 or chunk_size > 8192:
-            logging.error("Error: chunk_size must be in range 256-8192")
-            raise ValueError("chunk_size must be in range 256-8192")
-        
+        elif chunk_size < 64 or chunk_size > 8192:
+            logging.error("Error: chunk_size must be in range 64-8192")
+            raise ValueError("chunk_size must be in range 64-8192")
+
         client_socket = None
         word_counter = Counter()  # Counter to aggregate word counts
         text_buffer = ""
